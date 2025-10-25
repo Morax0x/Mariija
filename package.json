@@ -1,0 +1,24 @@
+{
+  "name": "publisher-stats-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for publisher statistics using SQLite.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "stats",
+    "sqlite"
+  ],
+  "author": "Your Name or Team Name",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.23.2",
+    "dotenv": "^16.6.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  }
+}
