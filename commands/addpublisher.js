@@ -1,114 +1,146 @@
-// 📁 commands/addpublisher.js (النسخة 7.1)
+// 📁 commands/addpublisher.js (النسخة 8.0 - تدعم السيرفرات)
 
 import {
-  LANG,
-  replyOrFollowUp,
-  embedSimple,
-  createSummaryEmbed,
-  getGuildAdChannelId,
-  sendOrUpdatePublisherAd,
-  buildSummaryComponents
+    LANG,
+    checkAdmin,
+    replyOrFollowUp,
+    embedSimple,
+    sendOrUpdatePublisherAd, // ⬅️ الدالة المحدثة
+    createSummaryEmbed,
+    getGuildAdChannelId,
+    buildSummaryComponents
 } from '../utils.js';
-import { EmbedBuilder, ChannelType } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ChannelType } from 'discord.js';
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export default {
-  name: 'addpublisher',
-  description: 'إضافة ناشر رسمي (أو عدة ناشرين).',
-  adminOnly: true,
+    name: 'addpublisher',
+    description: '[إدارة] إضافة ناشر رسمي (أو عدة ناشرين).',
+    adminOnly: true,
 
-  async execute(client, interactionOrMessage, args, db) {
-    const guildId = interactionOrMessage.guildId || interactionOrMessage.guild?.id;
-
-    if (interactionOrMessage.deferReply) {
-        await interactionOrMessage.deferReply({ ephemeral: true });
-    }
-
-    let userIds = [];
-    if (interactionOrMessage.user) {
-      const usersString = interactionOrMessage.options.getString('users') || '';
-      userIds = usersString.match(/\d{17,19}/g) || [];
-    } else {
-      const joined = args.join(' ');
-      userIds = joined.match(/\d{17,19}/g) || [];
-    }
-    userIds = [...new Set(userIds)];
-
-    if (userIds.length === 0) {
-      return replyOrFollowUp(interactionOrMessage, {
-        embeds: [embedSimple(client, LANG.ar.ERROR_PUBLISHERS_ADD_NONE.title, LANG.ar.ERROR_PUBLISHERS_ADD_NONE.description, "Red")]
-      });
-    }
-
-    const added = [];
-    const failed = [];
-
-    for (const id of userIds) {
-      try {
-        const user = await client.users.fetch(id).catch(() => null);
-        if (!user || user.bot) { failed.push(`<@${id}>`); continue; }
-
-        const exists = await db.get("SELECT 1 FROM publishers WHERE userId = ?", id);
-        if (exists) { failed.push(`${user.tag} ${LANG.ar.PUBLISHER_ADD_FAIL_ALREADY}`); continue; }
-
-        await db.run("INSERT OR IGNORE INTO publishers (userId, tag, joinDate) VALUES (?, ?, ?)", user.id, user.tag, new Date().toISOString());
-        const nowExists = await db.get("SELECT 1 FROM publishers WHERE userId = ?", id);
-        if (!nowExists) { failed.push(`<@${id}>`); continue; }
-
-        added.push(`<@${id}>`);
-
-        if (guildId) {
-          await sendOrUpdatePublisherAd(client, db, guildId, id, '30d').catch(() => {});
+    async execute(client, interactionOrMessage, args, db) {
+        
+        if (!(await checkAdmin(interactionOrMessage, db))) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")], flags: MessageFlags.Ephemeral });
         }
-      } catch {
-        failed.push(`<@${id}>`);
-      }
-    }
 
-    if (guildId && added.length > 0) {
-      const adChannelId = await getGuildAdChannelId(db, guildId);
-      if (adChannelId) {
-        const adChannel = await client.channels.fetch(adChannelId).catch(() => null);
-        if (adChannel && (adChannel.type === ChannelType.GuildText || adChannel.type === ChannelType.GuildAnnouncement)) {
+        const guild = interactionOrMessage.guild;
+        if (!guild) return; // (تم التحقق منه في index.js)
 
-          const defaultTimeframe = '30d';
-          const summary = await createSummaryEmbed(client, db, defaultTimeframe).catch(() => null);
-          if (summary) {
-            const components = buildSummaryComponents(guildId, defaultTimeframe);
-            const summaryKey = `summaryMessageId:${guildId}`;
-            const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
+        let usersInputString;
 
-            if (summaryRow?.value) {
-                try {
-                    const oldMsg = await adChannel.messages.fetch(summaryRow.value);
-                    await oldMsg.delete();
-                } catch (e) {}
+        if (interactionOrMessage.user) { 
+            usersInputString = interactionOrMessage.options.getString('users');
+            await interactionOrMessage.deferReply({ ephemeral: true });
+        } else { 
+            usersInputString = args.join(' ');
+        }
+
+        const userIds = usersInputString.match(/\d{17,19}/g) || [];
+
+        if (userIds.length === 0) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ", "لم يتم تحديد أي مستخدمين (منشن أو ID).", "Red")], flags: MessageFlags.Ephemeral });
+        }
+
+        let added = 0;
+        let already = 0;
+        let failedFetch = 0;
+        let dbErrors = 0;
+        const addedMembersList = []; // (للتحديث البطيء)
+        const addedMentions = []; // (للرد)
+        const failedMentions = [];
+
+        for (const userId of userIds) {
+            try {
+                const user = await client.users.fetch(userId);
+                if (user.bot) {
+                    failedMentions.push(`<@${userId}> (لا يمكن إضافة بوت)`);
+                    continue;
+                }
+                
+                // ⬅️ (فلترة حسب السيرفر)
+                const existing = await db.get("SELECT 1 FROM publishers WHERE userId = ? AND guildId = ?", user.id, guild.id);
+                if (existing) {
+                    already++;
+                    failedMentions.push(`<@${user.id}> ${LANG.ar.PUBLISHER_ADD_FAIL_ALREADY}`);
+                } else {
+                    // ⬅️ (إضافة مع guildId)
+                    await db.run("INSERT INTO publishers (guildId, userId, tag, joinDate) VALUES (?, ?, ?, ?)", 
+                        guild.id, user.id, user.tag, new Date().toISOString()
+                    );
+                    added++;
+                    addedMembersList.push(user.id);
+                    if (addedMentions.length < 25) {
+                        addedMentions.push(`<@${user.id}>`);
+                    }
+                }
+            } catch (e) {
+                if (e.code === 10013) { // Unknown User
+                    failedFetch++;
+                    failedMentions.push(`\`${userId}\` ${LANG.ar.PUBLISHER_ADD_FAIL_FETCH}`);
+                } else {
+                    dbErrors++;
+                    failedMentions.push(`\`${userId}\` ${LANG.ar.PUBLISHER_ADD_FAIL_DB}`);
+                    console.error("Error adding publisher:", e);
+                }
             }
-
-            const newMsg = await adChannel.send({ embeds: [summary], components: components });
-            await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
-          }
         }
-      }
+
+        if (added === 0 && failedMentions.length === 0 && already === 0) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ", LANG.ar.ERROR_PUBLISHERS_ADD_NONE.description, "Red")], flags: MessageFlags.Ephemeral });
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle(LANG.ar.SUCCESS_PUBLISHERS_ADDED_TITLE)
+            .setColor(0x3BA55D)
+            .setTimestamp();
+            
+        if (added > 0) {
+            embed.addFields({ name: `✅ تمت إضافة (${added}) ناشر:`, value: addedMentions.join('\n') });
+        }
+        if (failedMentions.length > 0) {
+            embed.addFields({ name: `⚠️ فشل إضافة (${failedMentions.length}):`, value: failedMentions.join('\n') });
+        }
+        if (dbErrors > 0) {
+             embed.addFields({ name: "أخطاء قاعدة بيانات", value: `${dbErrors}` });
+        }
+
+        await replyOrFollowUp(interactionOrMessage, { embeds: [embed], flags: MessageFlags.Ephemeral });
+
+        // --- (التحديث البطيء لقناة الإعلانات) ---
+        if (addedMembersList.length > 0) {
+            const adChannelId = await getGuildAdChannelId(db, guild.id);
+            const adChannel = adChannelId ? await client.channels.fetch(adChannelId).catch(() => null) : null;
+            
+            if (adChannel) {
+                console.log(`[AdChannel] بدء تحديث ${addedMembersList.length} ناشر مضاف حديثاً...`);
+                for (const memberId of addedMembersList) {
+                    // ⬅️ (تمرير guildId)
+                    await sendOrUpdatePublisherAd(client, db, guild.id, memberId, '30d').catch(() => {});
+                    await delay(2000); // (تأخير ثانيتين لتجنب الحظر)
+                }
+                
+                // تحديث الملخص (مرة واحدة)
+                const defaultTimeframe = '30d';
+                // ⬅️ (تمرير guildId)
+                const summary = await createSummaryEmbed(client, db, defaultTimeframe, guild.id).catch(() => null);
+                if (summary) {
+                    const components = buildSummaryComponents(guild.id, defaultTimeframe);
+                    const summaryKey = `summaryMessageId:${guild.id}`;
+                    const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
+
+                    if (summaryRow?.value) {
+                        try {
+                            const oldMsg = await adChannel.messages.fetch(summaryRow.value);
+                            await oldMsg.delete();
+                        } catch (e) {}
+                    }
+                    const newMsg = await adChannel.send({ embeds: [summary], components: components });
+                    await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
+                }
+                console.log("[AdChannel] اكتمل تحديث الناشرين.");
+            }
+        }
     }
-
-    const result = new EmbedBuilder().setAuthor({ name: client.user.username, iconURL: client.user.displayAvatarURL() });
-
-    if (added.length > 0) {
-      result.setTitle(LANG.ar.SUCCESS_PUBLISHERS_ADDED_TITLE)
-            .setDescription(added.join('\n'))
-            .setColor(0x3BA55D);
-    }
-
-    if (failed.length > 0) {
-      result.addFields({ name: LANG.ar.ERROR_PUBLISHERS_ADD_FAIL_TITLE, value: failed.join('\n') }).setColor(added.length ? 0xFEE75C : 0xED4245);
-    }
-
-    if (added.length === 0 && failed.length === 0) {
-      return replyOrFollowUp(interactionOrMessage, {
-        embeds: [embedSimple(client, LANG.ar.ERROR_PUBLISHERS_ADD_NONE.title, LANG.ar.ERROR_PUBLISHERS_ADD_NONE.description, "Red")]
-      });
-    }
-
-    return replyOrFollowUp(interactionOrMessage, { embeds: [result] });
-  }
 };
