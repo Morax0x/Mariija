@@ -1,54 +1,61 @@
-// 📁 commands/setprefix.js (نسخة محدثة 2.0)
+// 📁 commands/setprefix.js (النسخة 8.0 - تدعم السيرفرات)
 
 import {
     LANG,
     checkAdmin,
     replyOrFollowUp,
     embedSimple,
-    setPrefix // ⬅️ --- تم استيراد الدالة الجديدة ---
+    setPrefix // (هذه الدالة ستعدل البادئة الافتراضية فقط)
 } from '../utils.js';
 import { MessageFlags } from 'discord.js';
 
 export default {
     name: 'setprefix',
-    description: 'تعيين بادئة جديدة للبوت.',
-    adminOnly: true, // ⬅️ سيتم التحقق من الصلاحيات تلقائياً
+    description: '[إدارة] تعيين بادئة جديدة للبوت (لهذا السيرفر فقط).',
+    adminOnly: true,
 
-    /**
-     * @param {Client} client
-     * @param {import("discord.js").Message | import("discord.js").ChatInputCommandInteraction} interactionOrMessage
-     * @param {String[]} args (للأوامر التقليدية) | {InteractionOptions} args (للسلاش)
-     * @param {Database} db
-     */
     async execute(client, interactionOrMessage, args, db) {
+        
+        if (!(await checkAdmin(interactionOrMessage, db))) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")], flags: MessageFlags.Ephemeral });
+        }
 
-        const newPrefix = (interactionOrMessage.user) 
-            ? interactionOrMessage.options.getString('new_prefix') 
-            : args[0];
+        const guildId = interactionOrMessage.guildId;
+        let newPrefix;
 
-        if (!newPrefix) {
-            return replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, "❌ خطأ", "الرجاء تحديد بادئة جديدة.", "Red")] 
-            });
+        if (interactionOrMessage.user) { 
+            newPrefix = interactionOrMessage.options.getString('new_prefix');
+        } else { 
+            newPrefix = args[0];
+        }
+
+        if (!newPrefix || newPrefix.length > 5) {
+             return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ", "يجب تحديد بادئة جديدة (5 أحرف كحد أقصى).", "Red")], flags: MessageFlags.Ephemeral });
         }
 
         try {
-            // 1. التحديث في قاعدة البيانات
-            await db.run("UPDATE config SET value = ? WHERE key = 'prefix'", newPrefix);
+            // ⬅️ (استخدام مفتاح خاص بالسيرفر)
+            const key = `prefix:${guildId}`;
+            
+            // (تحديث: إذا كانت "reset"، نستخدم البادئة العالمية)
+            if (newPrefix.toLowerCase() === 'reset') {
+                 await db.run("DELETE FROM config WHERE key = ?", key);
+                 return replyOrFollowUp(interactionOrMessage, {
+                    embeds: [embedSimple(client, "✅ نجاح", "تمت إعادة تعيين البادئة إلى الافتراضية.", "Green")],
+                    flags: MessageFlags.Ephemeral
+                });
+            }
 
-            // 2. التحديث في ذاكرة البوت (الخطوة الجديدة)
-            setPrefix(newPrefix); // ⬅️ --- هذا هو السطر السحري ---
+            await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", key, newPrefix);
 
-            // 3. إرسال رسالة النجاح (بدون طلب إعادة التشغيل)
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, "✅ نجاح", LANG.ar.SUCCESS_PREFIX_SET.replace("{newPrefix}", newPrefix), "Green")] 
+            return replyOrFollowUp(interactionOrMessage, {
+                embeds: [embedSimple(client, "✅ نجاح", `تم تعيين بادئة هذا السيرفر إلى: \`${newPrefix}\``, "Green")],
+                flags: MessageFlags.Ephemeral
             });
 
-        } catch (err) {
-            console.error(err);
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, "❌ خطأ", LANG.ar.ERROR_SQL, "Red")] 
-            });
+        } catch (e) {
+            console.error("Error in setprefix:", e);
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ فادح", "حدث خطأ أثناء حفظ البادئة.", "Red")], flags: MessageFlags.Ephemeral });
         }
     }
 };
