@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 7.19 - تنظيف SQL نهائي)
+// 📁 index.js (النسخة 8.0 - تنظيف SQL نهائي)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -50,7 +50,7 @@ client.commands = new Collection();
 client.paginateFunctions = {};
 
 // ==========================================================
-// *** 🟢 (تصحيح: إعادة كتابة جميع استعلامات SQL) 🟢 ***
+// *** 🟢 (تصحيح: تمت إعادة كتابة جميع الاستعلامات) 🟢 ***
 // ==========================================================
 async function initializeDatabase() {
     try {
@@ -61,7 +61,7 @@ async function initializeDatabase() {
 
         await db.exec("PRAGMA foreign_keys = ON;");
 
-        // --- 1. جدول الناشرين ---
+        // --- 1. publishers ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publishers (
                 guildId TEXT NOT NULL,
@@ -72,7 +72,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 2. جدول رسائل الإعلانات ---
+        // --- 2. publisher_ad_messages ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publisher_ad_messages (
                 guildId TEXT NOT NULL,
@@ -83,7 +83,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 3. جدول القنوات ---
+        // --- 3. channels ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS channels (
                 guildId TEXT NOT NULL,
@@ -93,7 +93,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 4. جدول الإحصائيات ---
+        // --- 4. stats ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS stats (
                 guildId TEXT NOT NULL,
@@ -108,7 +108,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 5. جدول السجلات ---
+        // --- 5. post_log ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS post_log (
                 messageId TEXT PRIMARY KEY,
@@ -122,16 +122,16 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 6. جدول المشرفين ---
+        // --- 6. admins ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS admins (
                 guildId TEXT NOT NULL,
                 userId TEXT NOT NULL,
-                PRIMARY KEY (guildId, userId)
+  S               PRIMARY KEY (guildId, userId)
             );
         `);
         
-        // --- 7. جدول الإعدادات ---
+        // --- 7. config ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
@@ -139,7 +139,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 8. جدول التخصيص ---
+        // --- 8. customization ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS customization (
                 guildId TEXT NOT NULL,
@@ -154,10 +154,17 @@ async function initializeDatabase() {
         const prefixRow = await db.get("SELECT value FROM config WHERE key = 'prefix_global_fallback'");
         if (prefixRow) { setPrefix(prefixRow.value); }
         else { await db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('prefix_global_fallback', ?)", البادئة); }
+        
         console.log(`Database initialized (Guild-Aware). Default prefix: ${البادئة}`);
     
-    } catch (err) { console.error("Failed to initialize database (Guild-Aware):", err); process.exit(1); }
+    } catch (err) { 
+        console.error("Failed to initialize database (Guild-Aware):", err); 
+        process.exit(1); 
+    }
 }
+// ==========================================================
+// *** 🟢 (نهاية التعديل) 🟢 ***
+// ==========================================================
 
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'commands');
