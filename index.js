@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 7.18 - مصححة من أخطاء SQL)
+// 📁 index.js (النسخة 7.19 - تنظيف SQL نهائي)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -50,7 +50,7 @@ client.commands = new Collection();
 client.paginateFunctions = {};
 
 // ==========================================================
-// *** 🟢 (تصحيح: تم تنظيف جميع استعلامات SQL) 🟢 ***
+// *** 🟢 (تصحيح: إعادة كتابة جميع استعلامات SQL) 🟢 ***
 // ==========================================================
 async function initializeDatabase() {
     try {
@@ -158,9 +158,6 @@ async function initializeDatabase() {
     
     } catch (err) { console.error("Failed to initialize database (Guild-Aware):", err); process.exit(1); }
 }
-// ==========================================================
-// *** 🟢 (نهاية التعديل) 🟢 ***
-// ==========================================================
 
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'commands');
@@ -302,14 +299,6 @@ async function handleMessageCreate(message) {
     const args = message.content.slice(guildPrefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
 
-    // (الأوامر المخفية للمالك لا تحتاج guildId)
-    if (commandName === 'backup_db' || commandName === 'do') {
-        // (تم نقل الكود إلى ملف خاص)
-    }
-    if (commandName === 'upload_db' || commandName === 'up') {
-        // (تم نقل الكود إلى ملف خاص)
-    }
-
     const command = client.commands.get(commandName) || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
     if (!command) return;
 
@@ -335,12 +324,12 @@ async function handleMessageDelete(message) {
         const logEntry = await db.get(`SELECT userId, channelId, mediaCount, guildId FROM post_log WHERE messageId = ?`, message.id);
         if (!logEntry) return;
 
-        const { userId, channelId, mediaCount, guildId } = logEntry; // ⬅️ استخراج guildId
+        const { userId, channelId, mediaCount, guildId } = logEntry; 
         
         await db.run(`UPDATE stats SET
             points = MAX(0, points - ?),
             messageCount = MAX(0, messageCount - ?)
-            WHERE userId = ? AND channelId = ? AND guildId = ?`, // ⬅️ إضافة guildId
+            WHERE userId = ? AND channelId = ? AND guildId = ?`,
             [mediaCount, mediaCount, userId, channelId, guildId]); 
 
         await db.run(`DELETE FROM post_log WHERE messageId = ?`, message.id);
@@ -364,7 +353,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
         
         const oldMediaCount = logEntry.mediaCount;
         let newMediaCount = 0;
-        // (منطق حساب الوسائط... كما هو)
+        
         if (newMessage.attachments.size > 0) {
             newMediaCount += newMessage.attachments.filter(attachment => {
                 const type = attachment.contentType?.toLowerCase() || '';
@@ -419,7 +408,7 @@ async function handleInteraction(interaction) {
       return; 
   }
 
-  const guildId = interaction.guildId; // ⬅️ جلب ID السيرفر
+  const guildId = interaction.guildId; 
 
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
