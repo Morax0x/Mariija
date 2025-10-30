@@ -1,8 +1,8 @@
-// 📁 commands/removeadmin.js (نسخة محدثة 2.0 - للمشرفين)
+// 📁 commands/removeadmin.js (النسخة 8.0 - تدعم السيرفرات)
 
 import {
     LANG,
-    checkAdmin, // ⬅️ --- تم التغيير من isOwner إلى checkAdmin ---
+    checkAdmin,
     replyOrFollowUp,
     embedSimple
 } from '../utils.js';
@@ -10,40 +10,53 @@ import { MessageFlags } from 'discord.js';
 
 export default {
     name: 'removeadmin',
-    description: 'إزالة مشرف نشر.',
-    adminOnly: true, // ⬅️ --- هذا هو التعديل! ---
+    description: '[إدارة] إزالة مشرف نشر.',
+    adminOnly: true,
 
     async execute(client, interactionOrMessage, args, db) {
+        
+        if (!(await checkAdmin(interactionOrMessage, db))) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")], flags: MessageFlags.Ephemeral });
+        }
 
-        // جلب المستخدم من السلاش أو المنشن
-        const user = (interactionOrMessage.user)
-            ? interactionOrMessage.options.getUser('user')
-            : interactionOrMessage.mentions.users.first();
+        const guildId = interactionOrMessage.guildId;
+        let targetUser;
 
-        if (!user) {
-            return replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, LANG.ar.ERROR_MENTION_USER.title, LANG.ar.ERROR_MENTION_USER.description, "Red")] 
-            });
+        if (interactionOrMessage.user) { 
+            targetUser = interactionOrMessage.options.getUser('user');
+        } else {
+            const mentionedUser = interactionOrMessage.mentions.users.first();
+            const userId = args[0]?.match(/\d{17,19}/g)?.[0];
+
+            if (mentionedUser) {
+                targetUser = mentionedUser;
+            } else if (userId) {
+                targetUser = await client.users.fetch(userId).catch(() => null);
+            }
+        }
+
+        if (!targetUser) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ", "يجب تحديد المستخدم (منشن أو ID).", "Red")], flags: MessageFlags.Ephemeral });
         }
 
         try {
-            const result = await db.run("DELETE FROM admins WHERE userId = ?", user.id);
-
-            if (result.changes === 0) {
-                return replyOrFollowUp(interactionOrMessage, { 
-                    embeds: [embedSimple(client, "🤔", LANG.ar.ERROR_ADMIN_NOT_LISTED.replace("{userName}", user.username), "Yellow")] 
-                });
+            // 3. التحقق (مع guildId)
+            const existing = await db.get("SELECT 1 FROM admins WHERE userId = ? AND guildId = ?", targetUser.id, guildId);
+            if (!existing) {
+                return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "🤔", `المستخدم ${targetUser.tag} ليس مشرفاً أصلاً.`, "Yellow")], flags: MessageFlags.Ephemeral });
             }
 
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, LANG.ar.SUCCESS_ADMIN_REMOVED, `تمت إزالة ${user.tag} من المشرفين.`, "Green")] 
+            // 4. الحذف (مع guildId)
+            await db.run("DELETE FROM admins WHERE userId = ? AND guildId = ?", targetUser.id, guildId);
+
+            return replyOrFollowUp(interactionOrMessage, {
+                embeds: [embedSimple(client, "✅ نجاح", `✶ تـمـت إزالـة ${targetUser.tag} من قائمة المشرفين بـنجـاح.`, "Green")],
+                flags: MessageFlags.Ephemeral
             });
 
-        } catch (err) {
-            console.error(err);
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, "❌ خطأ", LANG.ar.ERROR_SQL, "Red")] 
-            });
+        } catch (e) {
+            console.error("Error in removeadmin:", e);
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ فادح", "حدث خطأ أثناء الحذف من قاعدة البيانات.", "Red")], flags: MessageFlags.Ephemeral });
         }
     }
 };
