@@ -1,12 +1,12 @@
-// 📁 commands/stats.js (النسخة 6.0 - تستدعي الأزرار الزمنية)
+// 📁 commands/stats.js (النسخة 8.0 - تدعم السيرفرات)
 
 import {
     LANG,
     replyOrFollowUp,
     embedSimple,
     getAuthorId,
-    createPaginatedStatsEmbed, // ⬅️ الدالة المحدثة
-    createChannelStatsEmbed 
+    createPaginatedStatsEmbed, // ⬅️ دالة محدثة
+    createChannelStatsEmbed  // ⬅️ دالة محدثة
 } from '../utils.js';
 
 import { ChannelType } from 'discord.js';
@@ -14,39 +14,59 @@ import { ChannelType } from 'discord.js';
 export default {
     name: 'stats',
     description: 'عرض إحصائيات ناشر (أو إحصائياتك إذا لم تمنشن).',
-    // هذا الأمر متاح للجميع
 
     async execute(client, interactionOrMessage, args, db) {
 
-        let user; // المستخدم المستهدف لعرض الإحصائيات
-        const author = interactionOrMessage.user || interactionOrMessage.author; // صاحب الأمر
+        let targetUser;
+        let targetChannel;
+        const author = interactionOrMessage.user || interactionOrMessage.author;
+        const guildId = interactionOrMessage.guildId; // ⬅️ جلب ID السيرفر
 
-        // 1. جلب المستخدم من المنشن/الخيار أولاً
-        const mentionedUser = (interactionOrMessage.user)
-            ? interactionOrMessage.options.getUser('user') 
-            : interactionOrMessage.mentions.users.first();
+        if (interactionOrMessage.user) { // Slash command
+            targetUser = interactionOrMessage.options.getUser('user') || author;
+            targetChannel = interactionOrMessage.options.getChannel('channel');
+        
+        } else { // Prefix command
+            const mentionedUser = interactionOrMessage.mentions.users.first();
+            const mentionedChannel = interactionOrMessage.mentions.channels.first();
 
-        const channel = (interactionOrMessage.user)
-            ? interactionOrMessage.options.getChannel('channel')
-            : interactionOrMessage.mentions.channels.filter(c => 
-                c.type === ChannelType.GuildText || 
-                c.type === ChannelType.GuildAnnouncement || 
-                c.type === ChannelType.PublicThread ||
-                c.type === ChannelType.PrivateThread ||
-                c.type === ChannelType.AnnouncementThread ||
-                c.type === ChannelType.GuildForum 
-                ).first(); 
+            let userArg = null;
+            let channelArg = null;
 
-        // 2. إذا تم منشن/اختيار مستخدم، استخدمه
-        if (mentionedUser) {
-            user = mentionedUser;
-        } 
-        // 3. إذا لم يتم المنشن/الاختيار، استخدم صاحب الأمر
-        else {
-            user = author; 
+            const arg0 = args[0]?.match(/\d{17,19}/g)?.[0];
+            const arg1 = args[1]?.match(/\d{17,19}/g)?.[0];
 
-            const isAuthorPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ?", user.id);
+            if (mentionedUser) {
+                userArg = mentionedUser;
+                if (mentionedChannel) {
+                    channelArg = mentionedChannel;
+                } else if (arg1) {
+                    channelArg = await client.channels.fetch(arg1).catch(() => null);
+                }
+            } 
+            else if (arg0) {
+                const fetchedUser = await client.users.fetch(arg0).catch(() => null);
+                if (fetchedUser) {
+                    userArg = fetchedUser;
+                    if (mentionedChannel) {
+                        channelArg = mentionedChannel;
+                    } else if (arg1) {
+                        channelArg = await client.channels.fetch(arg1).catch(() => null);
+                    }
+                } else {
+                    channelArg = await client.channels.fetch(arg0).catch(() => null);
+                    userArg = author;
+                }
+            }
 
+            targetUser = userArg || author;
+            targetChannel = channelArg || (mentionedChannel && !userArg ? mentionedChannel : null);
+        }
+
+        // --- التحقق من الناشر (صاحب الأمر) ---
+        if (targetUser.id === author.id) {
+            // ⬅️ (فلترة حسب السيرفر)
+            const isAuthorPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ? AND guildId = ?", author.id, guildId);
             if (!isAuthorPublisher) {
                  return replyOrFollowUp(interactionOrMessage, {
                      embeds: [embedSimple(client, 
@@ -58,54 +78,51 @@ export default {
             }
         }
 
-        // --- باقي الكود ---
-
-        const isTargetPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ?", user.id);
+        // --- التحقق من الناشر (المستهدف) ---
+        // ⬅️ (فلترة حسب السيرفر)
+        const isTargetPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ? AND guildId = ?", targetUser.id, guildId);
         if (!isTargetPublisher) {
              return replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, LANG.ar.ERROR_NO_STATS_TITLE.replace("{tag}", user.tag), LANG.ar.ERROR_NO_STATS, "Red")] 
+                embeds: [embedSimple(client, LANG.ar.ERROR_NO_STATS_TITLE.replace("{tag}", targetUser.tag), LANG.ar.ERROR_NO_STATS, "Red")] 
             });
         }
 
         // --- حالة عرض إحصائيات قناة محددة ---
-        // (ملاحظة: هذي بتظل تعرض "ALL" لأننا ما عدلنا دالة createChannelStatsEmbed)
-        if (channel) {
-             if(channel.type === ChannelType.GuildForum){
+        if (targetChannel) {
+             if(targetChannel.type === ChannelType.GuildForum){
                   return replyOrFollowUp(interactionOrMessage, { 
-                      embeds: [embedSimple(client, "💡 تنبيه", `لعرض إحصائيات البوستات داخل المنتدى ${channel.toString()}، استخدم الأمر بدون تحديد قناة.`, "Blue")] 
+                      embeds: [embedSimple(client, "💡 تنبيه", `لعرض إحصائيات البوستات داخل المنتدى ${targetChannel.toString()}، استخدم الأمر بدون تحديد قناة.`, "Blue")] 
                   });
              }
 
-            const isMonitored = await db.get("SELECT 1 FROM channels WHERE channelId = ?", channel.id);
+            // ⬅️ (فلترة حسب السيرفر)
+            const isMonitored = await db.get("SELECT 1 FROM channels WHERE channelId = ? AND guildId = ?", targetChannel.id, guildId);
             if (!isMonitored) {
                 return replyOrFollowUp(interactionOrMessage, { 
                     embeds: [embedSimple(client, LANG.ar.ERROR_CHANNEL_NOT_MONITORED.title, LANG.ar.ERROR_CHANNEL_NOT_MONITORED.description, "Yellow")] 
                 });
             }
-            const embed = await createChannelStatsEmbed(client, db, channel.id, channel, user);
+            // ⬅️ (تمرير guildId)
+            const embed = await createChannelStatsEmbed(client, db, targetChannel.id, targetChannel, targetUser, guildId);
             return replyOrFollowUp(interactionOrMessage, { embeds: [embed] });
         }
 
         // --- حالة عرض الإحصائيات الكاملة (مع الأزرار الزمنية) ---
-
-        // ⬇️ --- هذا هو التصليح --- ⬇️
-
         const requestAuthorId = getAuthorId(interactionOrMessage); 
-        const defaultTimeframe = '30d'; // ⬅️ الإطار الزمني الافتراضي (30 يوم)
+        const defaultTimeframe = '30d';
 
-        // نستدعي الدالة الجديدة ونطلب "rows" (صفين أزرار)
+        // ⬅️ (تمرير guildId)
         const { embed, rows } = await createPaginatedStatsEmbed(
             client, 
             db, 
-            user, 
+            targetUser, 
             1, // page
             requestAuthorId, 
-            defaultTimeframe
+            defaultTimeframe,
+            'stats',
+            guildId // ⬅️ الإضافة الجديدة
         ); 
 
-        // نرسل الرد مع "rows" (الصفين)
         return replyOrFollowUp(interactionOrMessage, { embeds: [embed], components: rows });
-
-        // ⬆️ --- نهاية التصليح --- ⬆️
     }
 };
