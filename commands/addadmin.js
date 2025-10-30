@@ -1,49 +1,68 @@
-// 📁 commands/addadmin.js (نسخة محدثة 2.0 - للمشرفين)
+// 📁 commands/addadmin.js (النسخة 8.0 - تدعم السيرفرات)
 
 import {
     LANG,
-    checkAdmin, // ⬅️ --- تم التغيير من isOwner إلى checkAdmin ---
+    checkAdmin,
     replyOrFollowUp,
     embedSimple
 } from '../utils.js';
-import { MessageFlags, Collection } from 'discord.js';
+import { MessageFlags } from 'discord.js';
 
 export default {
     name: 'addadmin',
-    description: 'إضافة مستخدم كـ مشرف نشر.',
-    adminOnly: true, // ⬅️ --- هذا هو التعديل! الآن أي شخص معه "Manage Server" يقدر ---
+    description: '[إدارة] إضافة مستخدم كـ مشرف نشـر.',
+    adminOnly: true,
 
     async execute(client, interactionOrMessage, args, db) {
+        
+        // 1. التحقق من الصلاحيات (الدالة checkAdmin محدثة)
+        if (!(await checkAdmin(interactionOrMessage, db))) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")], flags: MessageFlags.Ephemeral });
+        }
 
-        // جلب المستخدمين من السلاش أو المنشن
-        const users = (interactionOrMessage.user)
-            ? new Collection([[interactionOrMessage.options.getUser('user').id, interactionOrMessage.options.getUser('user')]])
-            : interactionOrMessage.mentions.users;
+        const guildId = interactionOrMessage.guildId;
+        let targetUser;
 
-        if (users.size === 0) {
-            return replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, LANG.ar.ERROR_MENTION_USER.title, LANG.ar.ERROR_MENTION_USER.description, "Red")] 
-            });
+        // 2. جلب المستخدم (سلاش أو بريفكس/ID)
+        if (interactionOrMessage.user) { 
+            targetUser = interactionOrMessage.options.getUser('user');
+        } else {
+            const mentionedUser = interactionOrMessage.mentions.users.first();
+            const userId = args[0]?.match(/\d{17,19}/g)?.[0];
+
+            if (mentionedUser) {
+                targetUser = mentionedUser;
+            } else if (userId) {
+                targetUser = await client.users.fetch(userId).catch(() => null);
+            }
+        }
+
+        if (!targetUser) {
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ", "يجب تحديد المستخدم (منشن أو ID).", "Red")], flags: MessageFlags.Ephemeral });
+        }
+
+        if (targetUser.bot) {
+             return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "🤔", "لا يمكن إضافة البوتات كمشرفين.", "Yellow")], flags: MessageFlags.Ephemeral });
         }
 
         try {
-            const stmt = await db.prepare("INSERT OR IGNORE INTO admins (userId) VALUES (?)");
-            let addedCount = 0;
-            for (const user of users.values()) {
-                await stmt.run(user.id);
-                addedCount++;
+            // 3. التحقق من قاعدة البيانات (مع guildId)
+            const existing = await db.get("SELECT 1 FROM admins WHERE userId = ? AND guildId = ?", targetUser.id, guildId);
+            if (existing) {
+                return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "🤔", `المستخدم ${targetUser.tag} هو مشرف بالفعل.`, "Yellow")], flags: MessageFlags.Ephemeral });
             }
-            await stmt.finalize();
 
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, LANG.ar.SUCCESS_ADMIN_ADDED, `تم إضافة ${addedCount} مشرفين بنجاح.`, "Green")] 
+            // 4. الإضافة (مع guildId)
+            await db.run("INSERT INTO admins (guildId, userId) VALUES (?, ?)", guildId, targetUser.id);
+
+            return replyOrFollowUp(interactionOrMessage, {
+                embeds: [embedSimple(client, "✅ نجاح", `✶ تـم تعييـن ${targetUser.tag} كـ مشرف نشر بنجـاح.`, "Green")],
+                flags: MessageFlags.Ephemeral
             });
 
-        } catch (err) {
-            console.error(err);
-            await replyOrFollowUp(interactionOrMessage, { 
-                embeds: [embedSimple(client, "❌ خطأ", LANG.ar.ERROR_SQL, "Red")] 
-            });
+        } catch (e) {
+            console.error("Error in addadmin:", e);
+            return replyOrFollowUp(interactionOrMessage, { embeds: [embedSimple(client, "❌ خطأ فادح", "حدث خطأ أثناء الإضافة إلى قاعدة البيانات.", "Red")], flags: MessageFlags.Ephemeral });
         }
     }
 };
