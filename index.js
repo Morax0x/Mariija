@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 7.17 - الكاملة / تدعم السيرفرات)
+// 📁 index.js (النسخة 7.18 - مصححة من أخطاء SQL)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -50,7 +50,7 @@ client.commands = new Collection();
 client.paginateFunctions = {};
 
 // ==========================================================
-// *** 🟢 (تعديل جذري: دالة إنشاء قاعدة البيانات) 🟢 ***
+// *** 🟢 (تصحيح: تم تنظيف جميع استعلامات SQL) 🟢 ***
 // ==========================================================
 async function initializeDatabase() {
     try {
@@ -61,7 +61,7 @@ async function initializeDatabase() {
 
         await db.exec("PRAGMA foreign_keys = ON;");
 
-        // --- 1. جدول الناشرين (أصبح يعتمد على السيرفر) ---
+        // --- 1. جدول الناشرين ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publishers (
                 guildId TEXT NOT NULL,
@@ -72,7 +72,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 2. جدول رسائل الإعلانات (أصبح المفتاح الأجنبي مزدوجاً) ---
+        // --- 2. جدول رسائل الإعلانات ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publisher_ad_messages (
                 guildId TEXT NOT NULL,
@@ -83,17 +83,17 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 3. جدول القنوات (أصبح يعتمد على السيرفر) ---
+        // --- 3. جدول القنوات ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS channels (
                 guildId TEXT NOT NULL,
                 channelId TEXT NOT NULL,
                 name TEXT,
-                PRIMARY KEY (channelId) 
+                PRIMARY KEY (channelId)
             );
         `);
 
-        // --- 4. جدول الإحصائيات (أصبح يعتمد على السيرفر) ---
+        // --- 4. جدول الإحصائيات ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS stats (
                 guildId TEXT NOT NULL,
@@ -108,11 +108,11 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 5. جدول السجلات (أصبح يعتمد على السيرفر) ---
+        // --- 5. جدول السجلات ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS post_log (
                 messageId TEXT PRIMARY KEY,
-                guildId TEXT NOT NULL, 
+                guildId TEXT NOT NULL,
                 userId TEXT,
                 channelId TEXT,
                 timestamp TEXT,
@@ -122,7 +122,7 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 6. جدول المشرفين (أصبح يعتمد على السيرفر) ---
+        // --- 6. جدول المشرفين ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS admins (
                 guildId TEXT NOT NULL,
@@ -131,15 +131,15 @@ async function initializeDatabase() {
             );
         `);
         
-        // --- 7. جدول الإعدادات (يبقى كما هو) ---
+        // --- 7. جدول الإعدادات ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS config (
-                key TEXT PRIMARY KEY, 
+                key TEXT PRIMARY KEY,
                 value TEXT
             );
         `);
 
-        // --- 8. جدول التخصيص (كما هو) ---
+        // --- 8. جدول التخصيص ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS customization (
                 guildId TEXT NOT NULL,
@@ -151,7 +151,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // جلب البادئة الافتراضية العالمية
         const prefixRow = await db.get("SELECT value FROM config WHERE key = 'prefix_global_fallback'");
         if (prefixRow) { setPrefix(prefixRow.value); }
         else { await db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('prefix_global_fallback', ?)", البادئة); }
@@ -159,6 +158,9 @@ async function initializeDatabase() {
     
     } catch (err) { console.error("Failed to initialize database (Guild-Aware):", err); process.exit(1); }
 }
+// ==========================================================
+// *** 🟢 (نهاية التعديل) 🟢 ***
+// ==========================================================
 
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'commands');
@@ -230,18 +232,13 @@ async function sendGuildJoinNotification(guild) {
     }
 }
 
-// ==========================================================
-// *** 🟢 (تعديل: إضافة guildId لتتبع الإحصائيات) 🟢 ***
-// ==========================================================
 async function handleMessageCreate(message) {
     if (message.author.bot || !message.guild) return;
     
-    const guildId = message.guildId; // ⬅️ جلب ID السيرفر
+    const guildId = message.guildId; 
 
     try {
-        // ⬅️ أصبح الاستعلام يعتمد على السيرفر
         const isPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ? AND guildId = ?", message.author.id, guildId);
-        // ⬅️ أصبح الاستعلام يعتمد على السيرفر (مع أن channelId فريد عالمياً، لكن هذا للاحتياط)
         const isMonitored = await db.get("SELECT 1 FROM channels WHERE channelId = ? AND guildId = ?", message.channel.id, guildId);
         
         if (isPublisher && isMonitored) {
@@ -274,7 +271,6 @@ async function handleMessageCreate(message) {
             if (mediaCount > 0) {
                 const now = new Date().toISOString();
                 console.log(`📊 ${message.author.tag} نشر ${mediaCount} وسائط في ${message.channel.name} (G: ${guildId})`);
-                // ⬅️ إضافة guildId
                 await db.run(
                     `INSERT INTO stats (guildId, userId, channelId, messageCount, points, lastPostDate)
                      VALUES (?, ?, ?, ?, ?, ?)
@@ -285,7 +281,6 @@ async function handleMessageCreate(message) {
                         lastPostDate = ?`,
                     [guildId, message.author.id, message.channel.id, mediaCount, mediaCount, now, mediaCount, mediaCount, now]
                 );
-                // ⬅️ إضافة guildId
                 await db.run(
                     `INSERT OR REPLACE INTO post_log (messageId, guildId, userId, channelId, timestamp, mediaCount)
                      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -297,43 +292,28 @@ async function handleMessageCreate(message) {
         console.error("Error in handleMessageCreate (Media Tracking):", err);
     }
 
-    // --- (تعديل: جلب البادئة الخاصة بالسيرفر) ---
-    let guildPrefix = البادئة; // (البادئة الافتراضية)
+    let guildPrefix = البادئة; 
     const prefixRow = await db.get("SELECT value FROM config WHERE key = ?", `prefix:${guildId}`);
     if (prefixRow) {
         guildPrefix = prefixRow.value;
     }
-    // --- (نهاية تعديل البادئة) ---
 
     if (!message.content.startsWith(guildPrefix)) return;
     const args = message.content.slice(guildPrefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
 
-    // (الأوامر المخفية للمالك لا تحتاج guildId لأن المالك عالمي)
+    // (الأوامر المخفية للمالك لا تحتاج guildId)
     if (commandName === 'backup_db' || commandName === 'do') {
-        if (!isOwner(message.author.id)) return;
-        try {
-            const attachment = new AttachmentBuilder(DB_PATH, { name: 'publisher_stats_backup.db' });
-            await message.author.send({
-                content: '✅ نسخة قاعدة البيانات الاحتياطية:',
-                files: [attachment]
-            });
-            if (message.channel.type !== ChannelType.DM) await message.react('📨');
-        } catch (error) {
-            console.error('Error in backup_db:', error);
-            if (message.channel.type !== ChannelType.DM) await message.react('❌');
-        }
-        return;
+        // (تم نقل الكود إلى ملف خاص)
     }
     if (commandName === 'upload_db' || commandName === 'up') {
-        // (الكود الخاص بهذا الأمر تم نقله إلى ملفه الخاص)
+        // (تم نقل الكود إلى ملف خاص)
     }
 
     const command = client.commands.get(commandName) || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
     if (!command) return;
 
-    // (checkAdmin سيتم تعديلها في utils.js لتقبل guildId)
-    if (command.adminOnly && !(await checkAdmin(interactionOrMessage, db))) {
+    if (command.adminOnly && !(await checkAdmin(message, db))) {
         return message.reply({ embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")] });
     }
     if (command.ownerOnly && !isOwner(message.author.id)) {
@@ -341,7 +321,6 @@ async function handleMessageCreate(message) {
     }
 
     try {
-        // (message يحتوي على guildId، لذا لا نحتاج لتمريره)
         await command.execute(client, message, args, db);
     } catch (error) {
         console.error(`Error executing prefix command '${commandName}':`, error);
@@ -349,51 +328,37 @@ async function handleMessageCreate(message) {
     }
 }
 
-// ==========================================================
-// *** 🟢 (تعديل: إضافة guildId لعمليات الحذف) 🟢 ***
-// ==========================================================
 async function handleMessageDelete(message) {
-    if (message.author?.bot || !message.guildId) return; // (تحقق محدث)
+    if (message.author?.bot || !message.guildId) return; 
     
-    const guildId = message.guildId;
-
     try {
-        // (messageId هو مفتاح أساسي، لا نحتاج guildId للبحث)
         const logEntry = await db.get(`SELECT userId, channelId, mediaCount, guildId FROM post_log WHERE messageId = ?`, message.id);
         if (!logEntry) return;
 
-        const { userId, channelId, mediaCount } = logEntry;
+        const { userId, channelId, mediaCount, guildId } = logEntry; // ⬅️ استخراج guildId
         
-        // (نحتاج guildId لتحديث الجدول الصحيح)
         await db.run(`UPDATE stats SET
             points = MAX(0, points - ?),
             messageCount = MAX(0, messageCount - ?)
-            WHERE userId = ? AND channelId = ? AND guildId = ?`,
-            [mediaCount, mediaCount, userId, channelId, logEntry.guildId]); // ⬅️ استخدام guildId من السجل
+            WHERE userId = ? AND channelId = ? AND guildId = ?`, // ⬅️ إضافة guildId
+            [mediaCount, mediaCount, userId, channelId, guildId]); 
 
         await db.run(`DELETE FROM post_log WHERE messageId = ?`, message.id);
-        console.log(`🗑️ تم خصم ${mediaCount} نقاط من ${userId} (G: ${logEntry.guildId})`);
+        console.log(`🗑️ تم خصم ${mediaCount} نقاط من ${userId} (G: ${guildId})`);
     } catch (err) {
         console.error("Error in handleMessageDelete (Media Tracking):", err);
     }
 }
 
-// ==========================================================
-// *** 🟢 (تعديل: إضافة guildId لعمليات التحديث) 🟢 ***
-// ==========================================================
 async function handleMessageUpdate(oldMessage, newMessage) {
     try {
         if (newMessage.author.bot || !newMessage.guild) return;
+        const guildId = newMessage.guildId; 
 
-        const guildId = newMessage.guildId; // ⬅️ جلب ID السيرفر
-
-        // ⬅️ أصبح الاستعلام يعتمد على السيرفر
         const isPublisher = await db.get("SELECT 1 FROM publishers WHERE userId = ? AND guildId = ?", newMessage.author.id, guildId);
         const isMonitored = await db.get("SELECT 1 FROM channels WHERE channelId = ? AND guildId = ?", newMessage.channel.id, guildId);
-        
         if (!isPublisher || !isMonitored) return;
 
-        // (messageId هو مفتاح أساسي)
         const logEntry = await db.get(`SELECT mediaCount FROM post_log WHERE messageId = ?`, newMessage.id);
         if (!logEntry) return; 
         
@@ -425,12 +390,10 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
-        // (نهاية منطق الحساب)
 
         const difference = newMediaCount - oldMediaCount;
         if (difference !== 0) {
             const now = new Date().toISOString();
-            // ⬅️ إضافة guildId
             await db.run(`UPDATE stats SET
                 points = MAX(0, points + ?),
                 messageCount = MAX(0, messageCount + ?),
@@ -438,7 +401,6 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 WHERE userId = ? AND channelId = ? AND guildId = ?`,
                 [difference, difference, now, newMessage.author.id, newMessage.channel.id, guildId]);
             
-            // (تحديث post_log لا يحتاج guildId لأنه يستخدم messageId)
             await db.run(`UPDATE post_log SET mediaCount = ?, timestamp = ? WHERE messageId = ?`,
                 [newMediaCount, now, newMessage.id]);
             
@@ -450,20 +412,25 @@ async function handleMessageUpdate(oldMessage, newMessage) {
 }
 
 async function handleInteraction(interaction) {
-  if (!interaction.guildId) return; // (لا يعمل في الخاص)
+  if (!interaction.guildId) {
+      if (interaction.isCommand()) {
+        await interaction.reply({ embeds: [embedSimple(client, "❌ خطأ", "هذا البوت يعمل داخل السيرفرات فقط.", "Red")], ephemeral: true });
+      }
+      return; 
+  }
+
+  const guildId = interaction.guildId; // ⬅️ جلب ID السيرفر
 
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
-    // (checkAdmin و isOwner سيعملان لأن interaction يحمل guildId)
     if (command.adminOnly && !(await checkAdmin(interaction, db)))
       return interaction.reply({ embeds: [embedSimple(client, LANG.ar.ERROR_PERM, "", "Red")], ephemeral: true });
     if (command.ownerOnly && !isOwner(interaction.user.id))
       return interaction.reply({ embeds: [embedSimple(client, LANG.ar.ERROR_OWNER_ONLY, "", "Red")], ephemeral: true });
     
     try {
-      // (interaction يحمل guildId، الأوامر ستستخدمه)
       await command.execute(client, interaction, interaction.options, db);
     } catch (error) {
       console.error(`Error executing slash command '${interaction.commandName}':`, error);
@@ -478,7 +445,6 @@ async function handleInteraction(interaction) {
   if (interaction.isButton()) {
     const idParts = interaction.customId.split("_");
     const buttonType = idParts[0];
-    const guildId = interaction.guildId; // ⬅️ دائماً موجود
 
     try {
       // --- (أزرار الملخص) ---
@@ -490,10 +456,8 @@ async function handleInteraction(interaction) {
         if (action === "time") { newTimeframe = idParts[3]; }
         else if (action === "refresh") { newTimeframe = idParts[3]; }
 
-        // ⬅️ إرسال guildId إلى الدالة
         const embed = await createSummaryEmbed(client, db, newTimeframe, guildId);
         if (!embed) return;
-
         const components = buildSummaryComponents(guildId, newTimeframe);
         await interaction.editReply({ embeds: [embed], components }).catch(() => {});
         return;
@@ -523,7 +487,6 @@ async function handleInteraction(interaction) {
           newPage = 1;
         }
 
-        // ⬅️ إرسال guildId إلى الدالة
         const { embed, rows } = await createPaginatedStatsEmbed(client, db, targetUser, newPage, statsAuthorId, newTimeframe, "stats", guildId);
         await interaction.editReply({ embeds: [embed], components: rows }).catch(() => {});
         return;
@@ -553,7 +516,6 @@ async function handleInteraction(interaction) {
           newPage = 1;
         }
 
-        // ⬅️ إرسال guildId (pubadAuthorId) إلى الدالة
         const { embed, rows } = await createPaginatedStatsEmbed(client, db, targetUser, newPage, pubadAuthorId, newTimeframe, "pubad", guildId);
         await interaction.editReply({ embeds: [embed], components: rows }).catch(() => {});
         return;
@@ -565,12 +527,11 @@ async function handleInteraction(interaction) {
         const command = idParts[1];
         const newPage = Math.max(1, parseInt(idParts[3]) || 1);
 
-        // ⬅️ إرسال guildId إلى الدوال
         if (command === "stats_top") {
           const { embed, row } = await createStatsEmbedPage(client, db, newPage, "stats_top", guildId);
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         } else if (command === "listchannels" || command === "listadmins" || command === "listpublishers") {
-          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); // (interaction يحمل guildId)
+          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); 
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         }
         return;
@@ -590,16 +551,13 @@ async function handleInteraction(interaction) {
           let newTimeframe = '30d';
 
           if (action === 'time') {
-              // ID: channelstats_time_{authorId}_{nextTimeframe}
               newTimeframe = idParts[3];
               newPage = 1;
           } else if (action === 'page') {
-              // ID: channelstats_page_{authorId}_{timeframe}_{page}
               newTimeframe = idParts[3];
               newPage = parseInt(idParts[4]) || 1;
           }
           
-          // ⬅️ إرسال guildId إلى الدالة
           const { embed, rows } = await createChannelListStats(db, newPage, authorId, newTimeframe, guildId);
           await interaction.editReply({ embeds: [embed], components: rows }).catch(() => {});
           return;
@@ -614,18 +572,13 @@ async function handleInteraction(interaction) {
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// ==========================================================
-// *** 🟢 (تعديل: إضافة guildId للمهام المجدولة) 🟢 ***
-// ==========================================================
 async function startScheduledTasks(client) {
     setInterval(async () => {
         console.log("⏰ بدء مهمة تحديث إحصائيات الناشرين اليومية (لكل سيرفر)...");
         try {
-            // (هذا الكود سليم لأنه يمر على السيرفرات)
             for (const guild of client.guilds.cache.values()) {
                 const keyScoped = `adChannel:${guild.id}`;
                 const row = await db.get("SELECT value FROM config WHERE key = ?", keyScoped);
-                // (لا نستخدم الإعداد القديم 'adChannel' لأنه عالمي)
                 const channelId = row?.value;
                 
                 if (!channelId) {
@@ -638,7 +591,6 @@ async function startScheduledTasks(client) {
                     continue;
                 }
 
-                // ⬅️ جلب الناشرين الخاصين بالسيرفر فقط
                 const publishers = await db.all("SELECT userId FROM publishers WHERE guildId = ?", guild.id);
                 
                 if (publishers.length > 0) {
@@ -649,7 +601,6 @@ async function startScheduledTasks(client) {
                             console.log(`-- لا يمكن العثور على الناشر (ID: ${publisher.userId})، تخطي.`);
                             continue;
                         }
-                        // (هذه الدالة جاهزة لاستقبال guild.id)
                         await sendOrUpdatePublisherAd(client, db, guild.id, targetUser.id, '30d');
                         await delay(1000); 
                     }
@@ -660,7 +611,6 @@ async function startScheduledTasks(client) {
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
                 try {
                     const defaultTimeframe = '30d';
-                    // ⬅️ إرسال guild.id إلى الدالة
                     const summaryEmbed = await createSummaryEmbed(client, db, defaultTimeframe, guild.id);
                     if (summaryEmbed) {
                         const components = buildSummaryComponents(guild.id, defaultTimeframe);
@@ -708,7 +658,7 @@ client.on('guildCreate', async (guild) => {
 async function startBot() {
     try {
         console.log("Starting bot...");
-        await initializeDatabase(); // (سيستخدم الدالة الجديدة)
+        await initializeDatabase(); 
         await loadCommands();
 
         client.once('ready', async (c) => {
@@ -718,7 +668,6 @@ async function startBot() {
             try {
                 const guildId = process.env.GUILD_ID;
                 if (guildId) {
-                    // (تحديث: SLASH_COMMANDS تحتاج الآن للتعديل في utils.js)
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
