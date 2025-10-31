@@ -61,87 +61,71 @@ async function initializeDatabase() {
 
         await db.exec("PRAGMA foreign_keys = ON;");
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS publishers (
-                guildId TEXT NOT NULL,
-                userId TEXT NOT NULL,
-                tag TEXT,
-                joinDate TEXT,
-                PRIMARY KEY (guildId, userId)
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS publishers (
+            guildId TEXT NOT NULL,
+            userId TEXT NOT NULL,
+            tag TEXT,
+            joinDate TEXT,
+            PRIMARY KEY (guildId, userId)
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS publisher_ad_messages (
-                guildId TEXT NOT NULL,
-                userId TEXT NOT NULL,
-                messageId TEXT NOT NULL,
-                PRIMARY KEY (guildId, userId),
-                FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS publisher_ad_messages (
+            guildId TEXT NOT NULL,
+            userId TEXT NOT NULL,
+            messageId TEXT NOT NULL,
+            PRIMARY KEY (guildId, userId),
+            FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS channels (
-                guildId TEXT NOT NULL,
-                channelId TEXT NOT NULL,
-                name TEXT,
-                PRIMARY KEY (channelId)
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS channels (
+            guildId TEXT NOT NULL,
+            channelId TEXT NOT NULL,
+            name TEXT,
+            PRIMARY KEY (channelId)
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS stats (
-                guildId TEXT NOT NULL,
-                userId TEXT,
-                channelId TEXT,
-                messageCount INTEGER DEFAULT 0,
-                points INTEGER DEFAULT 0,
-                lastPostDate TEXT,
-                PRIMARY KEY (guildId, userId, channelId),
-                FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE,
-                FOREIGN KEY (channelId) REFERENCES channels(channelId) ON DELETE CASCADE
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS stats (
+            guildId TEXT NOT NULL,
+            userId TEXT,
+            channelId TEXT,
+            messageCount INTEGER DEFAULT 0,
+            points INTEGER DEFAULT 0,
+            lastPostDate TEXT,
+            PRIMARY KEY (guildId, userId, channelId),
+            FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE,
+            FOREIGN KEY (channelId) REFERENCES channels(channelId) ON DELETE CASCADE
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS post_log (
-                messageId TEXT PRIMARY KEY,
-                guildId TEXT NOT NULL,
-                userId TEXT,
-                channelId TEXT,
-                timestamp TEXT,
-                mediaCount INTEGER DEFAULT 0,
-                FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE,
-                FOREIGN KEY (channelId) REFERENCES channels(channelId) ON DELETE CASCADE
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS post_log (
+            messageId TEXT PRIMARY KEY,
+            guildId TEXT NOT NULL,
+            userId TEXT,
+            channelId TEXT,
+            timestamp TEXT,
+            mediaCount INTEGER DEFAULT 0,
+            FOREIGN KEY (guildId, userId) REFERENCES publishers(guildId, userId) ON DELETE CASCADE,
+            FOREIGN KEY (channelId) REFERENCES channels(channelId) ON DELETE CASCADE
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS admins (
-                guildId TEXT NOT NULL,
-                userId TEXT NOT NULL,
-                PRIMARY KEY (guildId, userId)
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS admins (
+            guildId TEXT NOT NULL,
+            userId TEXT NOT NULL,
+            PRIMARY KEY (guildId, userId)
+        );`);
         
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS config (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );`);
 
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS customization (
-                guildId TEXT NOT NULL,
-                command TEXT NOT NULL,
-                color TEXT,
-                image TEXT,
-                thumbnail TEXT,
-                PRIMARY KEY (guildId, command)
-            );
-        `);
+        await db.exec(`CREATE TABLE IF NOT EXISTS customization (
+            guildId TEXT NOT NULL,
+            command TEXT NOT NULL,
+            color TEXT,
+            image TEXT,
+            thumbnail TEXT,
+            PRIMARY KEY (guildId, command)
+        );`);
 
         const prefixRow = await db.get("SELECT value FROM config WHERE key = 'prefix_global_fallback'");
         if (prefixRow) { setPrefix(prefixRow.value); }
@@ -372,7 +356,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 embed.type === 'image' || embed.type === 'video' || embed.type === 'gifv' ||
                 (embed.thumbnail && (embed.thumbnail.url || embed.thumbnail.proxyURL)) ||
                 (embed.image && (embed.image.url || embed.image.proxyURL)) ||
-                (embed.video && (embed.video.url || embed.video.proxyURL))
+CHANNELS                (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
 
@@ -516,7 +500,7 @@ async function handleInteraction(interaction) {
           const { embed, row } = await createStatsEmbedPage(client, db, newPage, "stats_top", guildId);
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         } else if (command === "listchannels" || command === "listadmins" || command === "listpublishers") {
-          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); 
+s          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); 
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         }
         return;
@@ -526,7 +510,7 @@ async function handleInteraction(interaction) {
       if (buttonType === "channelstats") {
           await interaction.deferUpdate();
           const action = idParts[1];
-          const authorId = idParts[2];
+_          const authorId = idParts[2];
           
           if (interaction.user.id !== authorId) {
              return interaction.followUp({ content: "لا يمكنك استخدام أزرار هذا الأمر.", ephemeral: true });
@@ -537,7 +521,7 @@ async function handleInteraction(interaction) {
 
           if (action === 'time') {
               newTimeframe = idParts[3];
-              newPage = 1;
+s              newPage = 1;
           } else if (action === 'page') {
               newTimeframe = idParts[3];
               newPage = parseInt(idParts[4]) || 1;
@@ -550,7 +534,7 @@ async function handleInteraction(interaction) {
 
     } catch (e) {
       console.error("❌ Error handling interaction:", e);
-    }
+S    }
   }
 }
 
@@ -573,7 +557,7 @@ async function startScheduledTasks(client) {
                 const adChannel = await client.channels.fetch(channelId).catch(() => null);
                 if (!adChannel || (adChannel.type !== ChannelType.GuildText && adChannel.type !== ChannelType.GuildAnnouncement)) {
                     console.error(`❌ لا يمكن العثور على قناة الإعلانات (ID: ${channelId}) في سيرفر ${guild.name}`);
-                    continue;
+content                  continue;
                 }
 
                 const publishers = await db.all("SELECT userId FROM publishers WHERE guildId = ?", guild.id);
@@ -582,10 +566,10 @@ async function startScheduledTasks(client) {
                      console.log(`- سيرفر ${guild.name}: جارٍ تحديث ${publishers.length} ناشر...`);
                     for (const publisher of publishers) {
                         const targetUser = await client.users.fetch(publisher.userId).catch(() => null);
-                        if (!targetUser) {
+s                        if (!targetUser) {
                             console.log(`-- لا يمكن العثور على الناشر (ID: ${publisher.userId})، تخطي.`);
                             continue;
-                        }
+          _             }
                         await sendOrUpdatePublisherAd(client, db, guild.id, targetUser.id, '30d');
                         await delay(1000); 
                     }
@@ -594,7 +578,7 @@ async function startScheduledTasks(client) {
                 }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
-                try {
+s              try {
                     const defaultTimeframe = '30d';
                     const summaryEmbed = await createSummaryEmbed(client, db, defaultTimeframe, guild.id);
                     if (summaryEmbed) {
@@ -606,18 +590,18 @@ async function startScheduledTasks(client) {
                         if (messageId) {
                             try {
                                 const oldMsg = await adChannel.messages.fetch(messageId);
-                                await oldMsg.delete();
+s                                await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
                             }
                         }
 
                         const newMsg = await adChannel.send({ embeds: [summaryEmbed], components: components });
-                        await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
+s                      await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
                     }
                 } catch(e) {
                     console.error(`❌ فشل تحديث الملخص اليومي لسيرفر ${guild.name}:`, e);
-                }
+section              }
 
             }
         } catch (error) {
@@ -652,12 +636,12 @@ async function startBot() {
             
             try {
                 const guildId = process.env.GUILD_ID;
-                if (guildId) {
+M              if (guildId) {
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
                     await client.application.commands.set(SLASH_COMMANDS);
-                    console.log("✅ Slash commands registered globally.");
+CHANNELS                  console.log("✅ Slash commands registered globally.");
                 }
             } catch (err) {
                 console.error("❌ Failed to register slash commands:", err);
@@ -672,7 +656,7 @@ async function startBot() {
         client.on('messageCreate', handleMessageCreate);
         client.on('messageDelete', handleMessageDelete);
         client.on('messageUpdate', handleMessageUpdate);
-        client.on('interactionCreate', handleInteraction);
+s        client.on('interactionCreate', handleInteraction);
 
         await client.login(TOKEN);
     } catch (e) {
