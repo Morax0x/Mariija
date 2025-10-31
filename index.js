@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.3 - تنظيف SyntaxError)
+// 📁 index.js (النسخة 8.3 - النظيفة تماماً)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -353,7 +353,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 embed.type === 'image' || embed.type === 'video' || embed.type === 'gifv' ||
                 (embed.thumbnail && (embed.thumbnail.url || embed.thumbnail.proxyURL)) ||
                 (embed.image && (embed.image.url || embed.image.proxyURL)) ||
-                (embed.video && (embed.video.url || embed.video.proxyURL))
+              _ (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
 
@@ -582,7 +582,7 @@ async function startScheduledTasks(client) {
                         const components = buildSummaryComponents(guild.id, defaultTimeframe);
                         const summaryKey = `summaryMessageId:${guild.id}`;
                         const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
-                        const messageId = summaryRow?.value;
+CHANNELS                  const messageId = summaryRow?.value;
 
                         if (messageId) {
                             try {
@@ -590,20 +590,20 @@ async function startScheduledTasks(client) {
                                 await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
-s                      }
+                            }
                         }
 
                         const newMsg = await adChannel.send({ embeds: [summaryEmbed], components: components });
-                        await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
+s                      await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
                     }
                 } catch(e) {
                     console.error(`❌ فشل تحديث الملخص اليومي لسيرفر ${guild.name}:`, e);
-                }
+section              }
 
             }
         } catch (error) {
             console.error("❌ خطأ فادح في مهمة تحديث الإحصائيات اليومية:", error);
-        }
+s      }
     }, 1000 * 60 * 60 * 24); 
 
     setInterval(async () => {
@@ -611,7 +611,7 @@ s                      }
             await sendDailyBackup();
         } catch (error) {
             console.error("❌ Error in 24-hour backup:", error);
-        }
+s      }
     }, 1000 * 60 * 60 * 24); 
 }
 
@@ -633,12 +633,12 @@ async function startBot() {
             
             try {
                 const guildId = process.env.GUILD_ID;
-                if (guildId) {
+M              if (guildId) {
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
                     await client.application.commands.set(SLASH_COMMANDS);
-                    console.log("✅ Slash commands registered globally.");
+CHANNELS                  console.log("✅ Slash commands registered globally.");
                 }
             } catch (err) {
                 console.error("❌ Failed to register slash commands:", err);
@@ -653,7 +653,7 @@ async function startBot() {
         client.on('messageCreate', handleMessageCreate);
         client.on('messageDelete', handleMessageDelete);
         client.on('messageUpdate', handleMessageUpdate);
-        client.on('interactionCreate', handleInteraction);
+s        client.on('interactionCreate', handleInteraction);
 
         await client.login(TOKEN);
     } catch (e) {
