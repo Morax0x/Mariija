@@ -1,4 +1,4 @@
-// 📁 utils.js (النسخة 8.6 - إصلاح كامل)
+// 📁 utils.js (النسخة 8.7 - الإصلاح النهائي)
 
 import {
 EmbedBuilder, PermissionsBitField, ChannelType,
