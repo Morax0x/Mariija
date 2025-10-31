@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.1 - تنظيف SQL نهائي)
+// 📁 index.js (النسخة 8.2 - تنظيف SyntaxError)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -49,9 +49,6 @@ const client = new Client({
 client.commands = new Collection();
 client.paginateFunctions = {};
 
-// ==========================================================
-// *** 🟢 (تصحيح: تمت إعادة كتابة جميع الاستعلامات يدوياً) 🟢 ***
-// ==========================================================
 async function initializeDatabase() {
     try {
         db = await open({
@@ -356,7 +353,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 embed.type === 'image' || embed.type === 'video' || embed.type === 'gifv' ||
                 (embed.thumbnail && (embed.thumbnail.url || embed.thumbnail.proxyURL)) ||
                 (embed.image && (embed.image.url || embed.image.proxyURL)) ||
-CHANNELS                (embed.video && (embed.video.url || embed.video.proxyURL))
+                (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
 
@@ -500,7 +497,7 @@ async function handleInteraction(interaction) {
           const { embed, row } = await createStatsEmbedPage(client, db, newPage, "stats_top", guildId);
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         } else if (command === "listchannels" || command === "listadmins" || command === "listpublishers") {
-s          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); 
+          const { embed, row } = await createListEmbed(client, db, newPage, command, interaction); 
           await interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
         }
         return;
@@ -510,7 +507,7 @@ s          const { embed, row } = await createListEmbed(client, db, newPage
       if (buttonType === "channelstats") {
           await interaction.deferUpdate();
           const action = idParts[1];
-_          const authorId = idParts[2];
+          const authorId = idParts[2];
           
           if (interaction.user.id !== authorId) {
              return interaction.followUp({ content: "لا يمكنك استخدام أزرار هذا الأمر.", ephemeral: true });
@@ -521,7 +518,7 @@ _          const authorId = idParts[2];
 
           if (action === 'time') {
               newTimeframe = idParts[3];
-s              newPage = 1;
+              newPage = 1;
           } else if (action === 'page') {
               newTimeframe = idParts[3];
               newPage = parseInt(idParts[4]) || 1;
@@ -534,7 +531,7 @@ s              newPage = 1;
 
     } catch (e) {
       console.error("❌ Error handling interaction:", e);
-S    }
+    }
   }
 }
 
@@ -557,7 +554,7 @@ async function startScheduledTasks(client) {
                 const adChannel = await client.channels.fetch(channelId).catch(() => null);
                 if (!adChannel || (adChannel.type !== ChannelType.GuildText && adChannel.type !== ChannelType.GuildAnnouncement)) {
                     console.error(`❌ لا يمكن العثور على قناة الإعلانات (ID: ${channelId}) في سيرفر ${guild.name}`);
-content                  continue;
+                    continue;
                 }
 
                 const publishers = await db.all("SELECT userId FROM publishers WHERE guildId = ?", guild.id);
@@ -566,10 +563,10 @@ content                  continue;
                      console.log(`- سيرفر ${guild.name}: جارٍ تحديث ${publishers.length} ناشر...`);
                     for (const publisher of publishers) {
                         const targetUser = await client.users.fetch(publisher.userId).catch(() => null);
-s                        if (!targetUser) {
+                        if (!targetUser) {
                             console.log(`-- لا يمكن العثور على الناشر (ID: ${publisher.userId})، تخطي.`);
                             continue;
-          _             }
+                        }
                         await sendOrUpdatePublisherAd(client, db, guild.id, targetUser.id, '30d');
                         await delay(1000); 
                     }
@@ -578,7 +575,7 @@ s                        if (!targetUser) {
                 }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
-s              try {
+                try {
                     const defaultTimeframe = '30d';
                     const summaryEmbed = await createSummaryEmbed(client, db, defaultTimeframe, guild.id);
                     if (summaryEmbed) {
@@ -590,18 +587,18 @@ s              try {
                         if (messageId) {
                             try {
                                 const oldMsg = await adChannel.messages.fetch(messageId);
-s                                await oldMsg.delete();
+                                await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
                             }
                         }
 
                         const newMsg = await adChannel.send({ embeds: [summaryEmbed], components: components });
-s                      await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
+                        await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
                     }
                 } catch(e) {
                     console.error(`❌ فشل تحديث الملخص اليومي لسيرفر ${guild.name}:`, e);
-section              }
+                }
 
             }
         } catch (error) {
@@ -636,12 +633,12 @@ async function startBot() {
             
             try {
                 const guildId = process.env.GUILD_ID;
-M              if (guildId) {
+                if (guildId) {
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
                     await client.application.commands.set(SLASH_COMMANDS);
-CHANNELS                  console.log("✅ Slash commands registered globally.");
+                    console.log("✅ Slash commands registered globally.");
                 }
             } catch (err) {
                 console.error("❌ Failed to register slash commands:", err);
@@ -656,7 +653,7 @@ CHANNELS                  console.log("✅ Slash commands registered gl
         client.on('messageCreate', handleMessageCreate);
         client.on('messageDelete', handleMessageDelete);
         client.on('messageUpdate', handleMessageUpdate);
-s        client.on('interactionCreate', handleInteraction);
+        client.on('interactionCreate', handleInteraction);
 
         await client.login(TOKEN);
     } catch (e) {
