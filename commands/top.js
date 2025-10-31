@@ -1,30 +1,39 @@
-// 📁 commands/top.js (النسخة 8.0 - تدعم السيرفرات)
+// 📁 commands/top.js (النسخة النهائية)
 
 import {
-    LANG,
-    replyOrFollowUp,
-    embedSimple,
-    createStatsEmbedPage // ⬅️ الدالة المحدثة
-} from '../utils.js';
+LANG,
+replyOrFollowUp,
+createStatsEmbedPage 
+} from "../utils.js";
+
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 
 export default {
-    name: 'top',
-    aliases: ['stats_top'], // (اسم مستعار ليتوافق مع أوامر التخصيص)
-    description: 'عـرض قائـمـة أعـلـى الناشـرين.',
-    
-    async execute(client, interactionOrMessage, args, db) {
-        
-        const guildId = interactionOrMessage.guildId; // ⬅️ جلب ID السيرفر
+name: "top",
+aliases: ['stats_top'], 
+description: 'عـرض قائـمـة أعـلـى الناشـرين.',
 
-        // ⬅️ (تمرير guildId)
-        const { embed, row } = await createStatsEmbedPage(
-            client, 
-            db, 
-            1, // page
-            'stats_top',
-            guildId // ⬅️ الإضافة الجديدة
-        );
+async execute(client, interactionOrMessage, args, db) {
+const guildId = interactionOrMessage.guildId; 
 
-        return replyOrFollowUp(interactionOrMessage, { embeds: [embed], components: [row] });
-    }
+if (!guildId) {
+return replyOrFollowUp(interactionOrMessage, { 
+            embeds: [embedSimple(client, "❌ خطأ", "هذا الأمر يجب أن يُستخدم داخل سيرفر.", "Red")] 
+        });
+}
+
+    // ⬅️ (الدالة المحدثة تستخدم guildId لفلترة النتائج)
+const { embed, row, totalPages } = await createStatsEmbedPage(
+client, 
+db, 
+1, 
+'stats_top',
+guildId // ⬅️ هذا هو الذي يجب أن يمرر
+);
+
+await replyOrFollowUp(interactionOrMessage, {
+embeds: [embed],
+components: [row]
+});
+},
 };
