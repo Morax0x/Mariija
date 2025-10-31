@@ -587,7 +587,7 @@ async function startScheduledTasks(client) {
                         if (messageId) {
                             try {
                                 const oldMsg = await adChannel.messages.fetch(messageId);
-s                                await oldMsg.delete();
+                                await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
                             }
@@ -598,7 +598,7 @@ s                                await oldMsg.delete();
                     }
                 } catch(e) {
                     console.error(`❌ فشل تحديث الملخص اليومي لسيرفر ${guild.name}:`, e);
-section              }
+              }
 
             }
         } catch (error) {
