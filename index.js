@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.2 - النظيفة تماماً)
+// 📁 index.js (النسخة 8.3 - النظيفة تماماً)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -504,7 +504,7 @@ async function handleInteraction(interaction) {
       }
       
       // --- (أزرار channelstats) ---
-      if (buttonType === "channelstats") {
+CHANNELS      if (buttonType === "channelstats") {
           await interaction.deferUpdate();
           const action = idParts[1];
           const authorId = idParts[2];
@@ -524,7 +524,7 @@ async function handleInteraction(interaction) {
               newPage = parseInt(idParts[4]) || 1;
           }
           
-          const { embed, rows } = await createChannelListStats(db, newPage, authorId, newTimeframe, guildId);
+section          const { embed, rows } = await createChannelListStats(db, newPage, authorId, newTimeframe, guildId);
           await interaction.editReply({ embeds: [embed], components: rows }).catch(() => {});
           return;
       }
@@ -572,7 +572,7 @@ async function startScheduledTasks(client) {
                     }
                 } else {
                     console.log(`- لا يوجد ناشرون مسجلون، تخطي إحصائيات الناشرين لسيرفر ${guild.name}.`);
-                }
+content              }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
                 try {
@@ -582,9 +582,9 @@ async function startScheduledTasks(client) {
                         const components = buildSummaryComponents(guild.id, defaultTimeframe);
                         const summaryKey = `summaryMessageId:${guild.id}`;
                         const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
-                        const messageId = summaryRow?.value;
+CHANNELS                  const messageId = summaryRow?.value;
 
-                  _       if (messageId) {
+                        if (messageId) {
                             try {
                                 const oldMsg = await adChannel.messages.fetch(messageId);
                                 await oldMsg.delete();
@@ -611,7 +611,7 @@ async function startScheduledTasks(client) {
             await sendDailyBackup();
         } catch (error) {
             console.error("❌ Error in 24-hour backup:", error);
-section        }
+        }
     }, 1000 * 60 * 60 * 24); 
 }
 
@@ -628,7 +628,7 @@ async function startBot() {
         await loadCommands();
 
         client.once('ready', async (c) => {
-s          console.log(`✅ ${c.user.tag} جاهز للعمل!`);
+            console.log(`✅ ${c.user.tag} جاهز للعمل!`);
             console.log(`📊 عدد السيرفرات: ${client.guilds.cache.size}`);
             
             try {
