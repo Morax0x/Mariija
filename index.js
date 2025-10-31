@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.3 - النظيفة تماماً)
+// 📁 index.js (النسخة 8.3 - تنظيف SyntaxError)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -590,7 +590,7 @@ async function startScheduledTasks(client) {
                                 await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
-                            }
+s                      }
                         }
 
                         const newMsg = await adChannel.send({ embeds: [summaryEmbed], components: components });
