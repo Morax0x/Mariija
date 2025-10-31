@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.3 - النظيفة تماماً)
+// 📁 index.js (النسخة 8.4 - النظيفة تماماً)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -192,7 +192,7 @@ async function sendGuildJoinNotification(guild) {
             .addFields(
                 { name: 'اسم السيرفر', value: guild.name, inline: true },
                 { name: 'ID السيرفر', value: guild.id, inline: true },
-                { name: 'عدد الأعضاء', value: guild.memberCount.toString(), inline: true },
+            	{ name: 'عدد الأعضاء', value: guild.memberCount.toString(), inline: true },
                 { name: 'المالك', value: guild.ownerId ? `<@${guild.ownerId}>` : 'غير معروف', inline: true },
                 { name: 'تاريخ الإنشاء', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:D>`, inline: true }
             )
@@ -353,7 +353,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 embed.type === 'image' || embed.type === 'video' || embed.type === 'gifv' ||
                 (embed.thumbnail && (embed.thumbnail.url || embed.thumbnail.proxyURL)) ||
                 (embed.image && (embed.image.url || embed.image.proxyURL)) ||
-              _ (embed.video && (embed.video.url || embed.video.proxyURL))
+                (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
 
@@ -531,7 +531,7 @@ async function handleInteraction(interaction) {
 
     } catch (e) {
       console.error("❌ Error handling interaction:", e);
-    }
+CHANNELS }
   }
 }
 
@@ -582,19 +582,19 @@ async function startScheduledTasks(client) {
                         const components = buildSummaryComponents(guild.id, defaultTimeframe);
                         const summaryKey = `summaryMessageId:${guild.id}`;
                         const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
-CHANNELS                  const messageId = summaryRow?.value;
+                        const messageId = summaryRow?.value;
 
                         if (messageId) {
                             try {
                                 const oldMsg = await adChannel.messages.fetch(messageId);
-                                await oldMsg.delete();
+s                                await oldMsg.delete();
                             } catch (e) {
                                 console.warn(`- فشل حذف ملخص قديم (ID: ${messageId}).`);
                             }
                         }
 
                         const newMsg = await adChannel.send({ embeds: [summaryEmbed], components: components });
-s                      await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
+                        await db.run("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", summaryKey, newMsg.id);
                     }
                 } catch(e) {
                     console.error(`❌ فشل تحديث الملخص اليومي لسيرفر ${guild.name}:`, e);
@@ -603,7 +603,7 @@ section              }
             }
         } catch (error) {
             console.error("❌ خطأ فادح في مهمة تحديث الإحصائيات اليومية:", error);
-s      }
+        }
     }, 1000 * 60 * 60 * 24); 
 
     setInterval(async () => {
@@ -611,7 +611,7 @@ s      }
             await sendDailyBackup();
         } catch (error) {
             console.error("❌ Error in 24-hour backup:", error);
-s      }
+        }
     }, 1000 * 60 * 60 * 24); 
 }
 
@@ -633,12 +633,12 @@ async function startBot() {
             
             try {
                 const guildId = process.env.GUILD_ID;
-M              if (guildId) {
+                if (guildId) {
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
                     await client.application.commands.set(SLASH_COMMANDS);
-CHANNELS                  console.log("✅ Slash commands registered globally.");
+                    console.log("✅ Slash commands registered globally.");
                 }
             } catch (err) {
                 console.error("❌ Failed to register slash commands:", err);
@@ -653,7 +653,7 @@ CHANNELS                  console.log("✅ Slash commands registered gl
         client.on('messageCreate', handleMessageCreate);
         client.on('messageDelete', handleMessageDelete);
         client.on('messageUpdate', handleMessageUpdate);
-s        client.on('interactionCreate', handleInteraction);
+        client.on('interactionCreate', handleInteraction);
 
         await client.login(TOKEN);
     } catch (e) {
