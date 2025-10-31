@@ -353,7 +353,7 @@ async function handleMessageUpdate(oldMessage, newMessage) {
                 embed.type === 'image' || embed.type === 'video' || embed.type === 'gifv' ||
                 (embed.thumbnail && (embed.thumbnail.url || embed.thumbnail.proxyURL)) ||
                 (embed.image && (embed.image.url || embed.image.proxyURL)) ||
-                (embed.video && (embed.video.url || embed.video.proxyURL))
+s              (embed.video && (embed.video.url || embed.video.proxyURL))
             ).length;
         }
 
@@ -572,7 +572,7 @@ async function startScheduledTasks(client) {
                     }
                 } else {
                     console.log(`- لا يوجد ناشرون مسجلون، تخطي إحصائيات الناشرين لسيرفر ${guild.name}.`);
-              _ }
+                }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
                 try {
@@ -639,7 +639,7 @@ async function startBot() {
                 } else {
                     await client.application.commands.set(SLASH_COMMANDS);
                     console.log("✅ Slash commands registered globally.");
-                }
+              _ }
             } catch (err) {
                 console.error("❌ Failed to register slash commands:", err);
             }
