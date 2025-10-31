@@ -504,7 +504,7 @@ async function handleInteraction(interaction) {
       }
       
       // --- (أزرار channelstats) ---
-CHANNELS      if (buttonType === "channelstats") {
+      if (buttonType === "channelstats") {
           await interaction.deferUpdate();
           const action = idParts[1];
           const authorId = idParts[2];
@@ -524,7 +524,7 @@ CHANNELS      if (buttonType === "channelstats") {
               newPage = parseInt(idParts[4]) || 1;
           }
           
-section          const { embed, rows } = await createChannelListStats(db, newPage, authorId, newTimeframe, guildId);
+          const { embed, rows } = await createChannelListStats(db, newPage, authorId, newTimeframe, guildId);
           await interaction.editReply({ embeds: [embed], components: rows }).catch(() => {});
           return;
       }
@@ -572,7 +572,7 @@ async function startScheduledTasks(client) {
                     }
                 } else {
                     console.log(`- لا يوجد ناشرون مسجلون، تخطي إحصائيات الناشرين لسيرفر ${guild.name}.`);
-content              }
+                }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
                 try {
@@ -582,7 +582,7 @@ content              }
                         const components = buildSummaryComponents(guild.id, defaultTimeframe);
                         const summaryKey = `summaryMessageId:${guild.id}`;
                         const summaryRow = await db.get("SELECT value FROM config WHERE key = ?", summaryKey);
-CHANNELS                  const messageId = summaryRow?.value;
+                        const messageId = summaryRow?.value;
 
                         if (messageId) {
                             try {
@@ -633,7 +633,7 @@ async function startBot() {
             
             try {
                 const guildId = process.env.GUILD_ID;
-M              if (guildId) {
+                if (guildId) {
                     await client.guilds.cache.get(guildId)?.commands.set(SLASH_COMMANDS);
                     console.log(`✅ Slash commands registered in guild ${guildId}`);
                 } else {
