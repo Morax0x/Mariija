@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.2 - تنظيف SyntaxError)
+// 📁 index.js (النسخة 8.2 - النظيفة تماماً)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -572,7 +572,7 @@ async function startScheduledTasks(client) {
                     }
                 } else {
                     console.log(`- لا يوجد ناشرون مسجلون، تخطي إحصائيات الناشرين لسيرفر ${guild.name}.`);
-                }
+              _ }
 
                 console.log(`- سيرفر ${guild.name}: جارٍ تحديث الملخص اليومي (حذف وإعادة إرسال)...`);
                 try {
@@ -660,6 +660,6 @@ async function startBot() {
         console.error("❌ Fatal error during bot startup:", e);
         process.exit(1);
         }
-        }
+    }
 
-        startBot();
+    startBot();
