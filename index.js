@@ -1,4 +1,4 @@
-// 📁 index.js (النسخة 8.0 - تنظيف SQL نهائي)
+// 📁 index.js (النسخة 8.1 - تنظيف SQL نهائي)
 
 import {
     Client, GatewayIntentBits, Partials, ChannelType,
@@ -50,7 +50,7 @@ client.commands = new Collection();
 client.paginateFunctions = {};
 
 // ==========================================================
-// *** 🟢 (تصحيح: تمت إعادة كتابة جميع الاستعلامات) 🟢 ***
+// *** 🟢 (تصحيح: تمت إعادة كتابة جميع الاستعلامات يدوياً) 🟢 ***
 // ==========================================================
 async function initializeDatabase() {
     try {
@@ -61,7 +61,6 @@ async function initializeDatabase() {
 
         await db.exec("PRAGMA foreign_keys = ON;");
 
-        // --- 1. publishers ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publishers (
                 guildId TEXT NOT NULL,
@@ -72,7 +71,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 2. publisher_ad_messages ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS publisher_ad_messages (
                 guildId TEXT NOT NULL,
@@ -83,7 +81,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 3. channels ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS channels (
                 guildId TEXT NOT NULL,
@@ -93,7 +90,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 4. stats ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS stats (
                 guildId TEXT NOT NULL,
@@ -108,7 +104,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 5. post_log ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS post_log (
                 messageId TEXT PRIMARY KEY,
@@ -122,16 +117,14 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 6. admins ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS admins (
                 guildId TEXT NOT NULL,
                 userId TEXT NOT NULL,
-  S               PRIMARY KEY (guildId, userId)
+                PRIMARY KEY (guildId, userId)
             );
         `);
         
-        // --- 7. config ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
@@ -139,7 +132,6 @@ async function initializeDatabase() {
             );
         `);
 
-        // --- 8. customization ---
         await db.exec(`
             CREATE TABLE IF NOT EXISTS customization (
                 guildId TEXT NOT NULL,
@@ -162,9 +154,6 @@ async function initializeDatabase() {
         process.exit(1); 
     }
 }
-// ==========================================================
-// *** 🟢 (نهاية التعديل) 🟢 ***
-// ==========================================================
 
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'commands');
